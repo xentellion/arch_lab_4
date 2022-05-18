@@ -1,0 +1,84 @@
+version: '3.3'
+
+services:
+
+  db-node-1:
+    build:
+      context: mysql
+      dockerfile: Dockerfile
+    container_name: db-node-1
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: 'stud'
+      MYSQL_USER: 'stud'
+      MYSQL_PASSWORD: 'stud'
+      MYSQL_ROOT_PASSWORD: 'root'
+    ports:
+      - 3360:3306
+
+  db-node-2:
+    build:
+      context: mysql
+      dockerfile: Dockerfile
+    container_name: db-node-2
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: 'stud'
+      MYSQL_USER: 'stud'
+      MYSQL_PASSWORD: 'stud'
+      MYSQL_ROOT_PASSWORD: 'root'
+    ports:
+      - 3361:3306
+      
+  proxysql:
+    build:
+      context: proxysql
+      dockerfile: Dockerfile
+    container_name: proxysql
+    depends_on:
+      - "db-node-1"
+      - "db-node-2"
+    ports:
+      # Mysql Client Port
+      - "6033:6033"
+  
+  ignite-node-1:
+    image: apacheignite/ignite
+    container_name: ignite-node-1
+    ports:
+      - "10800:10800"
+
+  ignite-node-2:
+    image: apacheignite/ignite
+    container_name: ignite-node-2
+    ports:
+      - "10900:10800"
+
+  zookeeper:
+        image: zookeeper
+        container_name: zookeeper
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2181
+            ZOOKEEPER_TICK_TIME: 2000
+            ZOOKEEPER_INIT_LIMIT: 5
+
+  kafka-node-1:
+      image: wurstmeister/kafka
+      container_name: kafka-node-1
+      depends_on:
+          - zookeeper
+          - "db-node-1"
+          - "db-node-2"
+          - "proxysql"
+      ports:
+          - "2181:2181"
+          - "9092:9092"
+      environment:
+          KAFKA_BROKER_ID: 1
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+          KAFKA_ADVERTISED_HOST_NAME: localhost
+          ADVERTISED_PORT: 9092
+          ADVERTISED_HOST_NAME: localhost
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
